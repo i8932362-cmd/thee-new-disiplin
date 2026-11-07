@@ -206,16 +206,17 @@ export const requestGoogleIdentityToken = async (
 };
 
 /**
- * Sign in with Google using popup and requested Drive + Sheets scopes.
- * Guarantees account selection before connection and handles Firebase Auth seamlessly.
+ * Sign in with Google using OAuth 2.0 with requested Drive + Sheets scopes.
+ * Guarantees account selection (select_account) before connection and handles errors cleanly.
  */
 export const signInWithGoogle = async (
   promptSelectAccount: boolean = true
 ): Promise<{ user?: User; accessToken: string; accountInfo: ConnectedGoogleAccount; cancelled?: boolean }> => {
   try {
     isSigningIn = true;
+    await ensureGisLoaded();
 
-    // Prefer Google Identity Services token client for guaranteed account chooser & no unauthorized-domain issues
+    // 1. Primary: Pure Google OAuth 2.0 Token Client (Official GIS client, no domain restrictions)
     if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
       try {
         const gisResult = await requestGoogleIdentityToken(promptSelectAccount);
@@ -226,12 +227,15 @@ export const signInWithGoogle = async (
           cancelled: gisResult.cancelled,
         };
       } catch (gisErr: any) {
-        console.warn('[GIS Primary attempt info]:', gisErr?.message || gisErr);
-        // Fall back to Firebase Auth signInWithPopup if GIS fails for any reason
+        if (gisErr?.message?.includes('dibatalkan') || gisErr?.message?.includes('cancel')) {
+          return { accessToken: '', accountInfo: null as any, cancelled: true };
+        }
+        console.warn('[Google OAuth 2.0 note]:', gisErr?.message || gisErr);
+        throw gisErr;
       }
     }
 
-    // Firebase Auth signInWithPopup fallback
+    // 2. Fallback only if GIS library could not be loaded at all
     const provider = new GoogleAuthProvider();
     SCOPES.forEach((scope) => provider.addScope(scope));
 
@@ -245,7 +249,7 @@ export const signInWithGoogle = async (
       const result = await signInWithPopup(firebaseAuth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (!credential?.accessToken) {
-        throw new Error('Gagal mendapatkan Access Token Google dari otentikasi Firebase.');
+        throw new Error('Gagal mendapatkan Access Token dari Google.');
       }
 
       inMemoryAccessToken = credential.accessToken;
@@ -263,7 +267,6 @@ export const signInWithGoogle = async (
         accountInfo,
       };
     } catch (firebaseErr: any) {
-      // 1. User intentionally closed popup
       if (
         firebaseErr.code === 'auth/popup-closed-by-user' ||
         firebaseErr.code === 'auth/cancelled-popup-request'
@@ -275,20 +278,12 @@ export const signInWithGoogle = async (
         };
       }
 
-      // 2. Popup blocked by browser settings
       if (firebaseErr.code === 'auth/popup-blocked') {
-        throw new Error('Popup pemilihan akun Google diblokir browser. Harap izinkan pop-up (pop-up allowed) di situs ini.');
+        throw new Error('Popup pemilihan akun Google diblokir peramban. Harap izinkan pop-up untuk situs ini.');
       }
 
-      // 3. Fallback to GIS if Firebase Auth has unauthorized-domain
-      console.warn('[Firebase Auth fallback to GIS token client]:', firebaseErr?.message || firebaseErr);
-      const gisResult = await requestGoogleIdentityToken(promptSelectAccount);
-      return {
-        user: firebaseAuth.currentUser || undefined,
-        accessToken: gisResult.accessToken,
-        accountInfo: gisResult.accountInfo,
-        cancelled: gisResult.cancelled,
-      };
+      console.warn('[Firebase popup note]:', firebaseErr?.message || firebaseErr);
+      throw new Error('Otentikasi Google gagal. Silakan buka aplikasi di tab baru atau izinkan popup peramban.');
     }
   } finally {
     isSigningIn = false;
@@ -476,7 +471,9 @@ export const syncAllDataToGoogleSheets = async (
 
   if (!metaRes.ok) {
     const err = await metaRes.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Gagal membaca metadata Google Spreadsheet.');
+    const errorObj: any = new Error(err.error?.message || `Gagal membaca Google Spreadsheet (${metaRes.status}).`);
+    errorObj.statusCode = metaRes.status;
+    throw errorObj;
   }
 
   const metaData = await metaRes.json();

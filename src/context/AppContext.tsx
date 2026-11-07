@@ -1175,7 +1175,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const connectGoogle = async (promptSelect: boolean = true) => {
     try {
       setGoogleSyncing(true);
-      showToast('Membuka autentikasi Google...', 'info');
+      showToast('Membuka OAuth 2.0 Google...', 'info');
       const res = await signInWithGoogle(promptSelect);
       if (res.cancelled || !res.accessToken) {
         showToast('Pemilihan akun Google dibatalkan.', 'info');
@@ -1185,15 +1185,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setGoogleAccount(accountInfo);
       setGoogleSheetsConnected(true);
 
-      showToast('Membuat folder database Google Drive & Spreadsheet otomatis...', 'info');
+      showToast(`Menghubungkan akun Google ${accountInfo.email}...`, 'info');
 
-      // 1. Automatically find or create dedicated folder in Google Drive
+      // 1. Automatically find or create dedicated folder in Google Drive for THIS account
       const folder = await getOrCreateDriveFolder(accessToken);
 
-      // 2. Automatically find or create dedicated Spreadsheet inside folder
+      // 2. Automatically find or create dedicated Spreadsheet inside folder for THIS account
       const sheet = await getOrCreateSpreadsheet(accessToken, folder.folderId);
 
-      // 3. Save IDs and URLs to app settings
+      // 3. Save IDs and URLs to app settings with the active email (database follows email)
       const nowIso = new Date().toISOString();
       await updateSettings({
         google_account_email: accountInfo.email,
@@ -1218,7 +1218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       showToast(
-        `Akun Google (${accountInfo.email}) terhubung! Folder & Google Spreadsheet berhasil dibuat (${syncRes.rowsUpdated} baris data disinkronkan).`,
+        `Akun Google (${accountInfo.email}) terhubung! Database spreadsheet otomatis aktif (${syncRes.rowsUpdated} baris data disinkronkan).`,
         'success'
       );
       return { success: true };
@@ -1240,8 +1240,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         google_account_email: '',
         google_account_name: '',
         google_account_photo: '',
+        google_drive_folder_id: '',
+        google_drive_folder_url: '',
+        google_sheet_id: '',
+        google_sheet_url: '',
+        google_last_synced_at: '',
       });
-      showToast('Akun Google berhasil diputuskan dari aplikasi.', 'info');
+      showToast('Akun Google berhasil diputuskan. Database lokal tetap aktif.', 'info');
     } catch (err: any) {
       showToast(err.message || 'Gagal memutuskan akun Google', 'error');
     }
@@ -1252,7 +1257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setGoogleSyncing(true);
       let token = await getAccessToken();
       if (!token) {
-        showToast('Meminta otorisasi Google untuk sinkronisasi...', 'info');
+        showToast('Meminta otorisasi OAuth Google untuk sinkronisasi...', 'info');
         const res = await signInWithGoogle(false);
         if (res.cancelled || !res.accessToken) {
           showToast('Otorisasi Google diperlukan untuk sinkronisasi data cloud.', 'info');
@@ -1277,15 +1282,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast('Mengirim seluruh data ke Google Sheets...', 'info');
-      const syncRes = await syncAllDataToGoogleSheets(token, sheetId, {
-        students,
-        classes,
-        sessions,
-        attendance,
-        outOfClass,
-        violations,
-        settings,
-      });
+      let syncRes;
+      try {
+        syncRes = await syncAllDataToGoogleSheets(token, sheetId, {
+          students,
+          classes,
+          sessions,
+          attendance,
+          outOfClass,
+          violations,
+          settings,
+        });
+      } catch (syncErr: any) {
+        // Self-heal: If permission denied (403/404) due to email change or sheet deleted, create in active user's Drive!
+        if (
+          syncErr?.statusCode === 403 ||
+          syncErr?.statusCode === 404 ||
+          syncErr?.message?.includes('403') ||
+          syncErr?.message?.includes('404') ||
+          syncErr?.message?.includes('permission')
+        ) {
+          showToast('Menyesuaikan database dengan akun Google aktif...', 'info');
+          const folder = await getOrCreateDriveFolder(token);
+          const sheet = await getOrCreateSpreadsheet(token, folder.folderId);
+          sheetId = sheet.spreadsheetId;
+          await updateSettings({
+            google_drive_folder_id: folder.folderId,
+            google_drive_folder_url: folder.folderUrl,
+            google_sheet_id: sheet.spreadsheetId,
+            google_sheet_url: sheet.spreadsheetUrl,
+          });
+          syncRes = await syncAllDataToGoogleSheets(token, sheetId, {
+            students,
+            classes,
+            sessions,
+            attendance,
+            outOfClass,
+            violations,
+            settings,
+          });
+        } else {
+          throw syncErr;
+        }
+      }
 
       const nowIso = new Date().toISOString();
       await updateSettings({ google_last_synced_at: nowIso });

@@ -107,9 +107,14 @@ export const GoogleAccountSelectModal: React.FC<GoogleAccountSelectModalProps> =
             </div>
           </div>
 
-          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center gap-2 text-[11px]">
-            <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>Mode bebas error: Dukungan Firebase Auth & Google Identity Services aktif.</span>
+          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-start gap-2 text-[11px]">
+            <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+            <div>
+              <strong className="block font-semibold">Protokol Google OAuth 2.0 Aktif</strong>
+              <span>
+                Email dapat diganti kapan saja. Folder Drive & Google Sheets otomatis dibuat dan mengikuti akun email yang Anda pilih saat ditautkan kembali tanpa error.
+              </span>
+            </div>
           </div>
 
           {typeof window !== 'undefined' && window.self !== window.top && (
@@ -149,7 +154,7 @@ export const GoogleAccountSelectModal: React.FC<GoogleAccountSelectModalProps> =
               <span>Menghubungkan...</span>
             ) : (
               <>
-                <span>Buka Pemilih Akun Google</span>
+                <span>Buka OAuth 2.0 Google</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </>
             )}
