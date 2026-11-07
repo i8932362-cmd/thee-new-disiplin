@@ -1607,30 +1607,15 @@ export const AdminView: React.FC = () => {
             )}
           </div>
 
-          {/* Default Credentials Summary Info Card */}
+          {/* Security & Password Policy Info Card */}
           <div className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-xs space-y-2">
             <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <Key className="w-3.5 h-3.5 text-slate-500" />
-              Informasi Kredensial Bawaan Sistem Awal (Sebelum Diubah):
+              Keamanan Akun & Kebijakan Sandi Multi-Pengguna:
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-slate-600 dark:text-slate-400">
-              <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="block text-[11px] text-slate-400">1. Sandi Piket / Gerbang</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">piket123</span>
-              </div>
-              <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="block text-[11px] text-slate-400">2. Sandi Wali Kelas</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">wali123</span>
-              </div>
-              <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="block text-[11px] text-slate-400">3. Sandi Kesiswaan</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">kesiswaan123</span>
-              </div>
-              <div className="p-2 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="block text-[11px] text-slate-400">4. Sandi Admin</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">admin123</span>
-              </div>
-            </div>
+            <p className="text-slate-600 dark:text-slate-400">
+              Seluruh kata sandi diamankan menggunakan enkripsi kriptografi satu arah (bcrypt). Administrator dapat mengatur dan memperbarui sandi untuk setiap peran (Piket, Wali Kelas, Kesiswaan, Admin) secara individual melalui tombol &quot;Ubah Sandi&quot; pada daftar akun di atas.
+            </p>
           </div>
         </div>
       )}

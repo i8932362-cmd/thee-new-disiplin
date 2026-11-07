@@ -728,6 +728,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {};
   };
 
+  // Secure one-way cryptographic hashing for offline/client fallback (no plaintext passwords in bundle)
+  const hashPasswordSecurely = async (pwd: string): Promise<string> => {
+    try {
+      const data = new TextEncoder().encode(`dkb_auth_salt_2026_${pwd}`);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch {
+      let h = 0;
+      for (let i = 0; i < pwd.length; i++) {
+        h = (Math.imul(31, h) + pwd.charCodeAt(i)) | 0;
+      }
+      return `h_${h}`;
+    }
+  };
+
+  const SECURE_OFFLINE_ROLE_HASHES = {
+    duty: [
+      'a6daec41ecc969b9c7eff19857a4e3f4523ed292b68d06f71d4e99470219c25b',
+      'e1a5d4a4d1c03e5a3024bd93bf5c0088719a2ecce55cd27bba70107f80310b5a',
+    ],
+    homeroom: [
+      '255ee0fea5d2a70fbb019c4bb98793d886e49c936cae2dd603c31a36aa5dadc5',
+      '334a69e0cd1755ef5fcce9bccaeb32a051949f58c41d0dd27cb90dce983a30f5',
+      'a6daec41ecc969b9c7eff19857a4e3f4523ed292b68d06f71d4e99470219c25b',
+      'e1a5d4a4d1c03e5a3024bd93bf5c0088719a2ecce55cd27bba70107f80310b5a',
+    ],
+    student_affairs: [
+      '9963acb0a4b2f4235df7827132a79af60ac5d8b3d6fed3f529bb813ee6a336e8',
+      'e1a5d4a4d1c03e5a3024bd93bf5c0088719a2ecce55cd27bba70107f80310b5a',
+    ],
+    admin: [
+      'e1a5d4a4d1c03e5a3024bd93bf5c0088719a2ecce55cd27bba70107f80310b5a',
+    ],
+  };
+
   // Auth Operations: completely safe from "Unexpected token <" HTML errors
   const loginDuty = async (password: string) => {
     try {
@@ -781,12 +818,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Autonomous client-side password verification fallback
-      const validPasswords = ['piket123', 'admin123'];
-      const customDutyPass = (settings as Record<string, any>)?.duty_password;
-      if (customDutyPass) validPasswords.push(customDutyPass);
+      // Autonomous client-side cryptographic verification fallback (Zero plaintext passwords in code)
+      const inputHash = await hashPasswordSecurely(password);
+      const isAuthorized = SECURE_OFFLINE_ROLE_HASHES.duty.includes(inputHash);
 
-      if (validPasswords.includes(password)) {
+      if (isAuthorized) {
         const token = createClientToken({
           userId: 'user_duty_main',
           role: 'duty',
@@ -867,12 +903,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Autonomous client-side password verification fallback
+      // Autonomous client-side cryptographic verification fallback (Zero plaintext passwords in code)
       const matchedClass = classes.find((c) => c.id === targetClassId);
-      const validPasswords = ['wali123', 'walikelas123', 'admin123', 'piket123'];
-      if (matchedClass?.homeroom_teacher_name) validPasswords.push(matchedClass.homeroom_teacher_name.toLowerCase());
+      const inputHash = await hashPasswordSecurely(password);
+      const isAuthorized = SECURE_OFFLINE_ROLE_HASHES.homeroom.includes(inputHash);
 
-      if (validPasswords.includes(password) || password.length >= 4) {
+      if (isAuthorized) {
         const token = createClientToken({
           userId: 'user_homeroom',
           role: 'homeroom',
@@ -952,12 +988,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Autonomous client-side password verification fallback
-      const validPasswords = ['kesiswaan123', 'admin123'];
-      const customSaPass = (settings as Record<string, any>)?.student_affairs_password;
-      if (customSaPass) validPasswords.push(customSaPass);
+      // Autonomous client-side cryptographic verification fallback (Zero plaintext passwords in code)
+      const inputHash = await hashPasswordSecurely(password);
+      const isAuthorized = SECURE_OFFLINE_ROLE_HASHES.student_affairs.includes(inputHash);
 
-      if (validPasswords.includes(password)) {
+      if (isAuthorized) {
         const token = createClientToken({
           userId: 'user_student_affairs',
           role: 'student_affairs',
@@ -1036,12 +1071,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Autonomous client-side password verification fallback
-      const validPasswords = ['admin123'];
-      const customAdminPass = (settings as Record<string, any>)?.admin_password;
-      if (customAdminPass) validPasswords.push(customAdminPass);
+      // Autonomous client-side cryptographic verification fallback (Zero plaintext passwords in code)
+      const inputHash = await hashPasswordSecurely(password);
+      const isAuthorized = SECURE_OFFLINE_ROLE_HASHES.admin.includes(inputHash);
 
-      if (validPasswords.includes(password)) {
+      if (isAuthorized) {
         const token = createClientToken({
           userId: 'user_admin_main',
           role: 'admin',

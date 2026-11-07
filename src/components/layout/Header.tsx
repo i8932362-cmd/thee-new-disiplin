@@ -9,6 +9,7 @@ import {
   VolumeX,
   Database,
   Calendar,
+  User,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.js';
 import { formatServerTime, formatIndonesianDate } from '../../utils/time.js';
@@ -69,6 +70,23 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             <span>Di Luar Jam Sesi Terjadwal</span>
           </div>
         )}
+
+        {/* Active Multi-User Role Badge */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300">
+          <User className="w-3.5 h-3.5 text-indigo-500" />
+          <span className="font-semibold text-slate-800 dark:text-slate-200">
+            {session?.lockedMenuRole === 'admin'
+              ? 'Administrator'
+              : session?.lockedMenuRole === 'student_affairs'
+              ? 'Kesiswaan'
+              : session?.lockedMenuRole === 'homeroom'
+              ? `Wali Kelas ${session.lockedMenuClassId || ''}`
+              : 'Petugas Piket'}
+          </span>
+          <span className="text-[10px] text-slate-400 hidden md:inline">
+            ({session?.name || 'Utama'})
+          </span>
+        </div>
       </div>
 
       {/* Right: Server Clock, Kiosk mode, Audio toggle, Lock indicator */}

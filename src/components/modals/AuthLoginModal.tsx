@@ -228,18 +228,7 @@ export const DutyLoginScreen: React.FC = () => {
 
         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
           <p className="text-[11px] text-slate-400">
-            {selectedRole === 'duty' && (
-              <>Sandi bawaan setup: <span className="font-mono text-slate-600 dark:text-slate-300">piket123</span></>
-            )}
-            {selectedRole === 'homeroom' && (
-              <>Sandi bawaan wali kelas: <span className="font-mono text-slate-600 dark:text-slate-300">wali123</span></>
-            )}
-            {selectedRole === 'student_affairs' && (
-              <>Sandi bawaan kesiswaan: <span className="font-mono text-slate-600 dark:text-slate-300">kesiswaan123</span></>
-            )}
-            {selectedRole === 'admin' && (
-              <>Sandi bawaan admin: <span className="font-mono text-slate-600 dark:text-slate-300">admin123</span></>
-            )}
+            Akses multi-pengguna terenkripsi. Hubungi Administrator jika lupa sandi akun.
           </p>
         </div>
       </div>
@@ -379,7 +368,7 @@ export const SecondaryUnlockModal: React.FC<SecondaryUnlockModalProps> = ({
                   </button>
                 </div>
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Sandi bawaan setup: <span className="font-mono">wali123</span>
+                  Gunakan sandi akun yang telah didaftarkan untuk kelas ini
                 </span>
               </div>
             </>
