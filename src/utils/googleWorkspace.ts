@@ -63,42 +63,157 @@ export const initGoogleAuth = (
 };
 
 /**
- * Sign in with Google using popup and requested Drive + Sheets scopes
+ * Request Google OAuth token via Google Identity Services (GIS) as a resilient fallback
+ */
+export const requestGoogleIdentityToken = async (): Promise<{
+  accessToken: string;
+  accountInfo: ConnectedGoogleAccount;
+  cancelled?: boolean;
+}> => {
+  const clientId = (firebaseConfig as any).oAuthClientId;
+  if (!clientId) {
+    throw new Error('Client ID OAuth Google tidak ditemukan pada konfigurasi aplikasi.');
+  }
+
+  // Ensure GIS library is available
+  if (typeof window === 'undefined' || !(window as any).google?.accounts?.oauth2) {
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        setTimeout(() => resolve(), 1200);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Gagal memuat Google Identity Services.'));
+        document.head.appendChild(script);
+      }
+    });
+  }
+
+  const google = (window as any).google;
+  if (!google?.accounts?.oauth2) {
+    throw new Error('Layanan Google Identity Services belum siap di browser.');
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES.join(' '),
+        prompt: 'select_account',
+        callback: async (tokenResponse: any) => {
+          if (tokenResponse.error) {
+            if (tokenResponse.error === 'access_denied') {
+              return resolve({ accessToken: '', accountInfo: null as any, cancelled: true });
+            }
+            return reject(new Error(tokenResponse.error_description || tokenResponse.error));
+          }
+
+          const token = tokenResponse.access_token;
+          if (!token) {
+            return reject(new Error('Gagal menerima Access Token dari Google.'));
+          }
+
+          inMemoryAccessToken = token;
+
+          try {
+            const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const userData = await userRes.json();
+            const accountInfo: ConnectedGoogleAccount = {
+              email: userData.email || 'akun-google@sekolah.sch.id',
+              name: userData.name || userData.email || 'Admin Google',
+              photo: userData.picture || undefined,
+              uid: userData.sub || `g_${Date.now()}`,
+              connectedAt: new Date().toISOString(),
+            };
+            resolve({ accessToken: token, accountInfo });
+          } catch {
+            resolve({
+              accessToken: token,
+              accountInfo: {
+                email: 'akun-google@sekolah.sch.id',
+                name: 'Admin Akun Google',
+                uid: `g_${Date.now()}`,
+                connectedAt: new Date().toISOString(),
+              },
+            });
+          }
+        },
+      });
+
+      client.requestAccessToken({ prompt: 'select_account' });
+    } catch (err: any) {
+      reject(err);
+    }
+  });
+};
+
+/**
+ * Sign in with Google using popup and requested Drive + Sheets scopes.
+ * Guarantees account selection before connection and prevents Firebase errors with zero-downtime GIS fallback.
  */
 export const signInWithGoogle = async (
-  promptSelectAccount: boolean = false
-): Promise<{ user: User; accessToken: string; accountInfo: ConnectedGoogleAccount }> => {
+  promptSelectAccount: boolean = true
+): Promise<{ user?: User; accessToken: string; accountInfo: ConnectedGoogleAccount; cancelled?: boolean }> => {
   try {
     isSigningIn = true;
     const provider = new GoogleAuthProvider();
     SCOPES.forEach((scope) => provider.addScope(scope));
 
-    if (promptSelectAccount) {
-      provider.setCustomParameters({
-        prompt: 'select_account',
-      });
+    // Always set prompt: select_account so the user can choose the account before connecting
+    provider.setCustomParameters({
+      prompt: 'select_account',
+    });
+
+    try {
+      const result = await signInWithPopup(firebaseAuth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential?.accessToken) {
+        throw new Error('Gagal mendapatkan Access Token Google dari otentikasi Firebase.');
+      }
+
+      inMemoryAccessToken = credential.accessToken;
+      const accountInfo: ConnectedGoogleAccount = {
+        email: result.user.email || '',
+        name: result.user.displayName || result.user.email || 'Admin Google',
+        photo: result.user.photoURL || undefined,
+        uid: result.user.uid,
+        connectedAt: new Date().toISOString(),
+      };
+
+      return {
+        user: result.user,
+        accessToken: inMemoryAccessToken,
+        accountInfo,
+      };
+    } catch (firebaseErr: any) {
+      // 1. User intentionally closed popup
+      if (
+        firebaseErr.code === 'auth/popup-closed-by-user' ||
+        firebaseErr.code === 'auth/cancelled-popup-request'
+      ) {
+        return {
+          accessToken: '',
+          accountInfo: null as any,
+          cancelled: true,
+        };
+      }
+
+      // 2. Popup blocked by browser settings
+      if (firebaseErr.code === 'auth/popup-blocked') {
+        throw new Error('Popup pemilihan akun Google diblokir browser. Harap izinkan pop-up (pop-up allowed) di situs ini.');
+      }
+
+      // 3. Fallback to Google Identity Services (GIS) to avoid any unauthorized domain or iframe error
+      console.warn('[Firebase Auth Fallback to Google Identity Services]:', firebaseErr);
+      const gisResult = await requestGoogleIdentityToken();
+      return gisResult;
     }
-
-    const result = await signInWithPopup(firebaseAuth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Gagal mendapatkan Access Token Google dari otentikasi.');
-    }
-
-    inMemoryAccessToken = credential.accessToken;
-    const accountInfo: ConnectedGoogleAccount = {
-      email: result.user.email || '',
-      name: result.user.displayName || result.user.email || 'Admin Google',
-      photo: result.user.photoURL || undefined,
-      uid: result.user.uid,
-      connectedAt: new Date().toISOString(),
-    };
-
-    return {
-      user: result.user,
-      accessToken: inMemoryAccessToken,
-      accountInfo,
-    };
   } finally {
     isSigningIn = false;
   }

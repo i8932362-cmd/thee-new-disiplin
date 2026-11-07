@@ -2,6 +2,7 @@ import React, { useState, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext.js';
 import { Sidebar } from './components/layout/Sidebar.js';
 import { Header } from './components/layout/Header.js';
+import { OfflineIndicatorBanner } from './components/pwa/OfflineIndicatorBanner.js';
 import { DutyLoginScreen, SecondaryUnlockModal } from './components/modals/AuthLoginModal.js';
 import { CheckCircle2, AlertCircle, Info, X, Lock } from 'lucide-react';
 
@@ -89,6 +90,9 @@ const MainAppContent: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
         {/* Sticky Header */}
         <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+
+        {/* Offline PWA Status Banner */}
+        <OfflineIndicatorBanner />
 
         {/* Dynamic View Content wrapped in Suspense for zero blank screen */}
         <main className="flex-1 pb-12">

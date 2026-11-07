@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.js';
 import { ActiveTab } from '../../types/index.js';
+import { PWAInstallButton } from '../pwa/PWAInstallButton.js';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -219,6 +220,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenUnlockM
             {lastSyncTime
               ? `Sinkron terakhir: ${lastSyncTime.toLocaleTimeString('id-ID')}`
               : 'Belum sinkron'}
+          </div>
+
+          {/* In-App PWA Offline Install Button */}
+          <div className="pt-1">
+            <PWAInstallButton />
           </div>
 
           {/* User Info & Logout */}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.js';
 import { formatServerTime, formatIndonesianDate } from '../../utils/time.js';
+import { PWAInstallButton } from '../pwa/PWAInstallButton.js';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -91,6 +92,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
       {/* Right: Server Clock, Kiosk mode, Audio toggle, Lock indicator */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* In-App PWA Offline Install Button */}
+        <PWAInstallButton compact={true} />
+
         {/* Real-time Multi-Device Sync Indicator */}
         <button
           onClick={() => syncNow()}

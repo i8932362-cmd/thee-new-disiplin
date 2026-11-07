@@ -1156,11 +1156,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Google Workspace Integration Actions
-  const connectGoogle = async (promptSelect: boolean = false) => {
+  const connectGoogle = async (promptSelect: boolean = true) => {
     try {
       setGoogleSyncing(true);
       showToast('Membuka autentikasi Google...', 'info');
-      const { user, accessToken, accountInfo } = await signInWithGoogle(promptSelect);
+      const res = await signInWithGoogle(promptSelect);
+      if (res.cancelled || !res.accessToken) {
+        showToast('Pemilihan akun Google dibatalkan.', 'info');
+        return { success: false };
+      }
+      const { accessToken, accountInfo } = res;
       setGoogleAccount(accountInfo);
       setGoogleSheetsConnected(true);
 
@@ -1466,6 +1471,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     type: 'BAK' | 'BAB' | 'Keperluan Lain',
     durationMinutes: number
   ) => {
+    // PWA Offline mode support
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const student = students.find((s) => s.nis === studentId);
+      if (!student) return { success: false, error: 'Siswa tidak ditemukan.' };
+      const now = new Date();
+      const expectedReturn = new Date(now.getTime() + durationMinutes * 60000).toISOString();
+      const offlineRecord: OutOfClassRecord = {
+        id: `ooc_off_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        student_id: studentId,
+        class_id: student.class_id,
+        type,
+        started_at: now.toISOString(),
+        due_at: expectedReturn,
+        status: 'active',
+        duration_minutes: durationMinutes,
+        late_return_minutes: 0,
+        idempotency_key: `ooc_off_${Date.now()}`,
+        version: 1,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+      setOutOfClass((prev) => [offlineRecord, ...prev]);
+      try {
+        const rawQ = localStorage.getItem('dkb_offline_queue');
+        const q = rawQ ? JSON.parse(rawQ) : [];
+        q.push({
+          type: 'out_of_class',
+          payload: { studentId, type, durationMinutes, idempotencyKey: offlineRecord.id },
+        });
+        localStorage.setItem('dkb_offline_queue', JSON.stringify(q));
+      } catch {}
+      soundEffects.playSuccessBeep();
+      showToast(`Mode Offline: Izin keluar ${student.name} tersimpan lokal.`, 'info');
+      return { success: true, record: offlineRecord, student };
+    }
+
     try {
       const res = await fetch('/api/out-of-class', {
         method: 'POST',
@@ -1503,6 +1544,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notes?: string,
     auditReason?: string
   ) => {
+    // PWA Offline mode support
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const nowIso = new Date().toISOString();
+      setOutOfClass((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: 'returned', returned_at: nowIso } : o))
+      );
+      soundEffects.playSuccessBeep();
+      showToast('Mode Offline: Pengembalian izin keluar tersimpan lokal.', 'info');
+      return { success: true };
+    }
+
     try {
       const res = await fetch('/api/out-of-class', {
         method: 'PUT',
@@ -1537,6 +1589,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     evidenceBase64?: string;
     evidenceFileName?: string;
   }) => {
+    // PWA Offline mode support
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const student = students.find((s) => s.nis === params.studentId);
+      const vt = violationTypes.find((v) => v.id === params.violationTypeId);
+      if (!student || !vt) return { success: false, error: 'Data siswa atau jenis pelanggaran tidak valid.' };
+      const nowIso = new Date().toISOString();
+      const points = params.customPoints !== undefined ? params.customPoints : vt.default_points;
+      const offlineRecord: ViolationRecord = {
+        id: `vio_off_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        student_id: params.studentId,
+        class_id: student.class_id,
+        violation_type_id: params.violationTypeId,
+        type_name: vt.name,
+        category: vt.category,
+        points,
+        notes: params.notes || '',
+        location: params.location,
+        evidence_photo_url: params.evidenceBase64,
+        recorded_by: session?.name || 'Petugas Piket',
+        recorded_at: nowIso,
+        version: 1,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      setViolations((prev) => [offlineRecord, ...prev]);
+      try {
+        const rawQ = localStorage.getItem('dkb_offline_queue');
+        const q = rawQ ? JSON.parse(rawQ) : [];
+        q.push({ type: 'violations', payload: params });
+        localStorage.setItem('dkb_offline_queue', JSON.stringify(q));
+      } catch {}
+      soundEffects.playSuccessBeep();
+      showToast(`Mode Offline: Pelanggaran ${student.name} (+${points} poin) tersimpan lokal.`, 'info');
+      return { success: true, violation: offlineRecord, studentTotalPoints: points };
+    }
+
     try {
       const res = await fetch('/api/violations', {
         method: 'POST',

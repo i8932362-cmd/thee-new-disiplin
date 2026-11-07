@@ -43,6 +43,7 @@ import {
   exportToExcel,
   StudentImportRow,
 } from '../utils/excel.js';
+import { GoogleAccountSelectModal } from '../components/modals/GoogleAccountSelectModal.js';
 import {
   User,
   Student,
@@ -120,6 +121,7 @@ export const AdminView: React.FC = () => {
   const [studentClassFilter, setStudentClassFilter] = useState('all');
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
 
   // Session CRUD state
   const [editingSession, setEditingSession] = useState<Partial<AttendanceSession> | null>(null);
@@ -2054,7 +2056,7 @@ export const AdminView: React.FC = () => {
                     <button
                       type="button"
                       disabled={googleSyncing}
-                      onClick={() => connectGoogle(false)}
+                      onClick={() => setIsGoogleModalOpen(true)}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 font-semibold text-slate-800 dark:text-slate-100 shadow-xs transition-colors"
                     >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 48 48">
@@ -2063,19 +2065,19 @@ export const AdminView: React.FC = () => {
                         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
                         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
                       </svg>
-                      <span>{googleSyncing ? 'Menghubungkan...' : 'Hubungkan Akun Google'}</span>
+                      <span>{googleSyncing ? 'Menghubungkan...' : 'Pilih & Hubungkan Akun Google'}</span>
                     </button>
                   ) : (
                     <>
                       <button
                         type="button"
                         disabled={googleSyncing}
-                        onClick={() => connectGoogle(true)}
+                        onClick={() => setIsGoogleModalOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 font-semibold transition-colors"
                         title="Ganti atau hubungkan dengan akun Google lain"
                       >
                         <RefreshCw className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Ganti Akun Google</span>
+                        <span>Pilih Akun Lain</span>
                       </button>
 
                       <button
@@ -3244,6 +3246,18 @@ export const AdminView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Google Account Pre-connection Selector Modal */}
+      <GoogleAccountSelectModal
+        isOpen={isGoogleModalOpen}
+        onClose={() => setIsGoogleModalOpen(false)}
+        onConfirmConnect={() => {
+          setIsGoogleModalOpen(false);
+          connectGoogle(true);
+        }}
+        isLoading={googleSyncing}
+        currentEmail={googleAccount?.email || settings.google_account_email}
+      />
     </div>
   );
 };
