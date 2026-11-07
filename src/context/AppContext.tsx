@@ -233,29 +233,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [googleSyncing, setGoogleSyncing] = useState<boolean>(false);
   const [isKioskFullscreen, setIsKioskFullscreen] = useState<boolean>(false);
 
-  // Initialize Google Auth state listener
-  useEffect(() => {
-    const unsub = initGoogleAuth(
-      (user, token) => {
-        setGoogleAccount({
-          email: user.email || '',
-          name: user.displayName || user.email || 'Admin Google',
-          photo: user.photoURL || undefined,
-          uid: user.uid,
-          connectedAt: new Date().toISOString(),
-        });
-        setGoogleSheetsConnected(true);
-      },
-      () => {
-        setGoogleAccount(null);
-        setGoogleSheetsConnected(false);
-      }
-    );
-    return () => {
-      unsub();
-    };
-  }, []);
-
   // Core Data States with Instant Offline Persistence
   const [settings, setSettings] = useState<AppSettings>(() => getCachedData('dkb_cache_settings', defaultSettings));
   const [classes, setClasses] = useState<SchoolClass[]>(() => getCachedData('dkb_cache_classes', []));
@@ -267,6 +244,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [violations, setViolations] = useState<ViolationRecord[]>(() => getCachedData('dkb_cache_violations', []));
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => getCachedData('dkb_cache_leave_requests', []));
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => getCachedData('dkb_cache_notification_settings', defaultNotificationSettings));
+
+  // Initialize Google Auth state listener
+  useEffect(() => {
+    const unsub = initGoogleAuth(
+      (user, token) => {
+        setGoogleAccount({
+          email: user.email || settings.google_account_email || '',
+          name: user.displayName || user.email || settings.google_account_name || 'Admin Google',
+          photo: user.photoURL || settings.google_account_photo || undefined,
+          uid: user.uid || 'google_user',
+          connectedAt: new Date().toISOString(),
+        });
+        setGoogleSheetsConnected(true);
+      },
+      () => {
+        if (!settings.google_account_email) {
+          setGoogleAccount(null);
+          setGoogleSheetsConnected(false);
+        }
+      }
+    );
+    return () => {
+      unsub();
+    };
+  }, [settings.google_account_email, settings.google_account_name, settings.google_account_photo]);
+
+  // Hydrate Google account state from persistent settings
+  useEffect(() => {
+    if (settings.google_account_email && !googleAccount) {
+      setGoogleAccount({
+        email: settings.google_account_email,
+        name: settings.google_account_name || 'Akun Google Sekolah',
+        photo: settings.google_account_photo || undefined,
+        uid: 'saved_google_account',
+        connectedAt: settings.google_last_synced_at || new Date().toISOString(),
+      });
+      setGoogleSheetsConnected(true);
+    }
+  }, [settings.google_account_email, settings.google_account_name, settings.google_account_photo, settings.google_last_synced_at, googleAccount]);
   const [notificationLogs, setNotificationLogs] = useState<NotificationLog[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
@@ -1238,6 +1254,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!token) {
         showToast('Meminta otorisasi Google untuk sinkronisasi...', 'info');
         const res = await signInWithGoogle(false);
+        if (res.cancelled || !res.accessToken) {
+          showToast('Otorisasi Google diperlukan untuk sinkronisasi data cloud.', 'info');
+          return { success: false };
+        }
         token = res.accessToken;
         setGoogleAccount(res.accountInfo);
         setGoogleSheetsConnected(true);

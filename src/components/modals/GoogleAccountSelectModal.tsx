@@ -111,6 +111,21 @@ export const GoogleAccountSelectModal: React.FC<GoogleAccountSelectModalProps> =
             <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
             <span>Mode bebas error: Dukungan Firebase Auth & Google Identity Services aktif.</span>
           </div>
+
+          {typeof window !== 'undefined' && window.self !== window.top && (
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-between text-[11px]">
+              <span>Tampilan pratinjau (iframe) terdeteksi.</span>
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <span>Buka Tab Baru</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
