@@ -206,36 +206,16 @@ export const requestGoogleIdentityToken = async (
 };
 
 /**
- * Sign in with Google using OAuth 2.0 with requested Drive + Sheets scopes.
- * Guarantees account selection (select_account) before connection and handles errors cleanly.
+ * Sign in with Google using Firebase Auth SDK with requested Drive + Sheets scopes.
+ * Guarantees account selection (select_account) and eliminates origin_mismatch errors.
  */
 export const signInWithGoogle = async (
   promptSelectAccount: boolean = true
 ): Promise<{ user?: User; accessToken: string; accountInfo: ConnectedGoogleAccount; cancelled?: boolean }> => {
   try {
     isSigningIn = true;
-    await ensureGisLoaded();
 
-    // 1. Primary: Pure Google OAuth 2.0 Token Client (Official GIS client, no domain restrictions)
-    if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
-      try {
-        const gisResult = await requestGoogleIdentityToken(promptSelectAccount);
-        return {
-          user: firebaseAuth.currentUser || undefined,
-          accessToken: gisResult.accessToken,
-          accountInfo: gisResult.accountInfo,
-          cancelled: gisResult.cancelled,
-        };
-      } catch (gisErr: any) {
-        if (gisErr?.message?.includes('dibatalkan') || gisErr?.message?.includes('cancel')) {
-          return { accessToken: '', accountInfo: null as any, cancelled: true };
-        }
-        console.warn('[Google OAuth 2.0 note]:', gisErr?.message || gisErr);
-        throw gisErr;
-      }
-    }
-
-    // 2. Fallback only if GIS library could not be loaded at all
+    // 1. Primary: Firebase Auth SDK signInWithPopup (as prescribed by Google Workspace integration)
     const provider = new GoogleAuthProvider();
     SCOPES.forEach((scope) => provider.addScope(scope));
 
@@ -249,7 +229,7 @@ export const signInWithGoogle = async (
       const result = await signInWithPopup(firebaseAuth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (!credential?.accessToken) {
-        throw new Error('Gagal mendapatkan Access Token dari Google.');
+        throw new Error('Gagal mendapatkan Access Token dari otentikasi Google.');
       }
 
       inMemoryAccessToken = credential.accessToken;
@@ -267,6 +247,7 @@ export const signInWithGoogle = async (
         accountInfo,
       };
     } catch (firebaseErr: any) {
+      // User closed popup or cancelled
       if (
         firebaseErr.code === 'auth/popup-closed-by-user' ||
         firebaseErr.code === 'auth/cancelled-popup-request'
@@ -282,8 +263,27 @@ export const signInWithGoogle = async (
         throw new Error('Popup pemilihan akun Google diblokir peramban. Harap izinkan pop-up untuk situs ini.');
       }
 
-      console.warn('[Firebase popup note]:', firebaseErr?.message || firebaseErr);
-      throw new Error('Otentikasi Google gagal. Silakan buka aplikasi di tab baru atau izinkan popup peramban.');
+      console.warn('[Firebase Auth fallback to GIS]:', firebaseErr?.message || firebaseErr);
+
+      // 2. Secondary fallback: GIS Token Client
+      if (typeof window !== 'undefined') {
+        await ensureGisLoaded();
+        if ((window as any).google?.accounts?.oauth2) {
+          try {
+            const gisResult = await requestGoogleIdentityToken(promptSelectAccount);
+            return {
+              user: firebaseAuth.currentUser || undefined,
+              accessToken: gisResult.accessToken,
+              accountInfo: gisResult.accountInfo,
+              cancelled: gisResult.cancelled,
+            };
+          } catch (gisErr: any) {
+            console.warn('[GIS fallback note]:', gisErr);
+          }
+        }
+      }
+
+      throw new Error(firebaseErr?.message || 'Gagal melakukan otentikasi Google.');
     }
   } finally {
     isSigningIn = false;
@@ -336,7 +336,7 @@ export const getOrCreateDriveFolder = async (
   }
 
   // 2. Create folder if not found
-  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -368,13 +368,33 @@ export const getOrCreateSpreadsheet = async (
   accessToken: string,
   folderId?: string
 ): Promise<{ spreadsheetId: string; spreadsheetUrl: string; isNew: boolean }> => {
-  // 1. Search existing spreadsheet
-  let query = `name='${SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  // 1. Search existing spreadsheet (scoped to folder first, then global)
+  const baseQuery = `name='${SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
   if (folderId) {
-    query += ` and '${folderId}' in parents`;
+    const scopedQuery = `${baseQuery} and '${folderId}' in parents`;
+    const scopedRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(scopedQuery)}&fields=files(id,name,webViewLink)`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (scopedRes.ok) {
+      const scopedData = await scopedRes.json();
+      if (scopedData.files && scopedData.files.length > 0) {
+        const existing = scopedData.files[0];
+        return {
+          spreadsheetId: existing.id,
+          spreadsheetUrl: existing.webViewLink || `https://docs.google.com/spreadsheets/d/${existing.id}/edit`,
+          isNew: false,
+        };
+      }
+    }
   }
+
+  // 1b. Search across user's files if not found inside specific folder
   const searchRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,webViewLink)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(baseQuery)}&fields=files(id,name,webViewLink)`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     }
@@ -384,6 +404,17 @@ export const getOrCreateSpreadsheet = async (
     const searchData = await searchRes.json();
     if (searchData.files && searchData.files.length > 0) {
       const existing = searchData.files[0];
+      if (folderId) {
+        try {
+          await fetch(
+            `https://www.googleapis.com/drive/v3/files/${existing.id}?addParents=${folderId}&fields=id,parents`,
+            {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+        } catch {}
+      }
       return {
         spreadsheetId: existing.id,
         spreadsheetUrl: existing.webViewLink || `https://docs.google.com/spreadsheets/d/${existing.id}/edit`,

@@ -2072,6 +2072,17 @@ export const AdminView: React.FC = () => {
                       <button
                         type="button"
                         disabled={googleSyncing}
+                        onClick={() => syncGoogleSheetsNow()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-xs disabled:opacity-50"
+                        title="Kirim dan sinkronkan data terkini ke Google Sheets & Google Drive"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${googleSyncing ? 'animate-spin' : ''}`} />
+                        <span>{googleSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={googleSyncing}
                         onClick={() => setIsGoogleModalOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 font-semibold transition-colors"
                         title="Ganti email atau hubungkan dengan akun Google lain"
