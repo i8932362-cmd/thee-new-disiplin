@@ -521,9 +521,14 @@ export const StudentAffairsView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-xl bg-white text-slate-900 border border-slate-300 rounded-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             {/* Kop */}
-            <div className="text-center border-b-2 border-slate-900 pb-3 mb-4">
-              <h2 className="text-base font-extrabold uppercase">{settings.school_name}</h2>
-              <p className="text-[11px] text-slate-600">SURAT PERINGATAN KEDISIPLINAN SISWA</p>
+            <div className="flex items-center justify-center gap-3 border-b-2 border-slate-900 pb-3 mb-4 text-center">
+              {settings.logo_url && (
+                <img src={settings.logo_url} alt="Logo Sekolah" className="w-12 h-12 object-contain shrink-0" />
+              )}
+              <div>
+                <h2 className="text-base font-extrabold uppercase">{settings.school_name || 'SEKOLAH INDONESIA'}</h2>
+                <p className="text-[11px] text-slate-600 font-semibold tracking-wide">SURAT PERINGATAN KEDISIPLINAN SISWA</p>
+              </div>
             </div>
 
             <div className="space-y-3 text-xs leading-relaxed">

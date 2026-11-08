@@ -30,7 +30,10 @@ async function init() {
   } else {
     // Mount Vite dev server middleware (standard AI Studio Full-Stack pattern)
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

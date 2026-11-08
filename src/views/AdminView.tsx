@@ -35,6 +35,12 @@ import {
   ExternalLink,
   LogOut,
   Database,
+  Image as ImageIcon,
+  UploadCloud,
+  Sparkles,
+  CheckCircle2,
+  RotateCcw,
+  Maximize2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 import {
@@ -44,6 +50,12 @@ import {
   StudentImportRow,
 } from '../utils/excel.js';
 import { GoogleAccountSelectModal } from '../components/modals/GoogleAccountSelectModal.js';
+import {
+  SCHOOL_NAME_PRESETS,
+  SCHOOL_LOGO_PRESETS,
+  compressImageFile,
+  LogoPreset,
+} from '../utils/logoPresets.js';
 import {
   User,
   Student,
@@ -157,6 +169,43 @@ export const AdminView: React.FC = () => {
   const [sendingWeeklyRecap, setSendingWeeklyRecap] = useState(false);
   const [weeklyRecapDay, setWeeklyRecapDay] = useState(notificationSettings.weekly_recap_day ?? 5);
   const [weeklyRecapTime, setWeeklyRecapTime] = useState(notificationSettings.weekly_recap_time || '15:00');
+  // School identity & logo management states
+  const [schoolNameInput, setSchoolNameInput] = useState(settings.school_name || '');
+  const [logoUrlInput, setLogoUrlInput] = useState(settings.logo_url || '');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [showClearNameConfirm, setShowClearNameConfirm] = useState(false);
+  const [showClearLogoConfirm, setShowClearLogoConfirm] = useState(false);
+  const [logoTab, setLogoTab] = useState<'upload' | 'preset' | 'url'>('upload');
+  const [previewZoomModal, setPreviewZoomModal] = useState(false);
+
+  // Quick Direct Password Change states (Ubah Langsung Tanpa Tambah Akun)
+  const [directAdminPass, setDirectAdminPass] = useState('');
+  const [showDirectAdminPass, setShowDirectAdminPass] = useState(false);
+  const [isSavingDirectAdmin, setIsSavingDirectAdmin] = useState(false);
+
+  const [directKesiswaanPass, setDirectKesiswaanPass] = useState('');
+  const [showDirectKesiswaanPass, setShowDirectKesiswaanPass] = useState(false);
+  const [isSavingDirectKesiswaan, setIsSavingDirectKesiswaan] = useState(false);
+
+  const [directHomeroomPass, setDirectHomeroomPass] = useState('');
+  const [directHomeroomClassId, setDirectHomeroomClassId] = useState('all');
+  const [showDirectHomeroomPass, setShowDirectHomeroomPass] = useState(false);
+  const [isSavingDirectHomeroom, setIsSavingDirectHomeroom] = useState(false);
+
+  const [directDutyPass, setDirectDutyPass] = useState('');
+  const [showDirectDutyPass, setShowDirectDutyPass] = useState(false);
+  const [isSavingDirectDuty, setIsSavingDirectDuty] = useState(false);
+
+  // Sync inputs when settings change from sync or external
+  useEffect(() => {
+    setSchoolNameInput(settings.school_name || '');
+  }, [settings.school_name]);
+
+  useEffect(() => {
+    setLogoUrlInput(settings.logo_url || '');
+  }, [settings.logo_url]);
 
   // Fetch all user accounts from server
   const fetchUsers = async () => {
@@ -227,6 +276,64 @@ export const AdminView: React.FC = () => {
       await fetchUsers();
     } catch (err: any) {
       showToast(`Terjadi kesalahan: ${err.message}`, 'error');
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
+  const handleDirectRolePasswordChange = async (
+    targetRole: 'admin' | 'student_affairs' | 'homeroom' | 'duty',
+    newPass: string,
+    classId?: string
+  ): Promise<boolean> => {
+    if (!newPass || newPass.trim().length < 4) {
+      showToast('Password baru minimal 4 karakter.', 'error');
+      return false;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const res = await fetch('/api/auth?action=manage_accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.token}`,
+        },
+        body: JSON.stringify({
+          targetRole,
+          newPassword: newPass.trim(),
+          classId: classId === 'all' ? undefined : classId,
+          universalHomeroom: targetRole === 'homeroom' && classId === 'all',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Gagal mengubah password.', 'error');
+        return false;
+      }
+
+      if (data.refreshedToken) {
+        updateSessionToken(data.refreshedToken);
+        showToast('Password Administrator berhasil diperbarui! Sesi browser Anda tetap aktif tanpa terputus.', 'success');
+      } else {
+        const roleLabel =
+          targetRole === 'admin'
+            ? 'Administrator'
+            : targetRole === 'student_affairs'
+            ? 'Kesiswaan'
+            : targetRole === 'homeroom'
+            ? classId && classId !== 'all'
+              ? `Wali Kelas ${classId}`
+              : 'Seluruh Wali Kelas (Sandi Bersama)'
+            : 'Petugas Piket';
+        showToast(`Kata sandi ${roleLabel} berhasil diperbarui langsung tanpa perlu menambah akun!`, 'success');
+      }
+
+      await fetchUsers();
+      return true;
+    } catch (err: any) {
+      showToast(`Terjadi kesalahan: ${err.message}`, 'error');
+      return false;
     } finally {
       setUpdatingPassword(false);
     }
@@ -1172,6 +1279,213 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
 
+          {/* QUICK DIRECT ROLE PASSWORD EDITOR (Ubah Sandi Langsung Tanpa Tambah Akun) */}
+          <div className="bg-gradient-to-r from-indigo-900/5 via-slate-900/5 to-purple-900/5 dark:from-indigo-950/40 dark:via-slate-900/40 dark:to-purple-950/40 border-2 border-indigo-200 dark:border-indigo-800/80 rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 dark:border-indigo-900/50 pb-3">
+              <div>
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">⚡</span>
+                  Ubah Langsung Sandi Akses Menu (Tanpa Perlu Tambah Akun / Petugas)
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  Ubah kata sandi untuk <strong>Kesiswaan</strong>, <strong>Administrator</strong>, <strong>Wali Kelas</strong>, dan <strong>Piket</strong> secara instan dalam 1 klik.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                Aksi Cepat Instan
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* CARD 1: SANDI KESISWAAN */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3 shadow-xs flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                      <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      1. Sandi Kesiswaan
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                      Menu Tatib
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Sandi untuk membuka menu Kesiswaan, data pelanggaran, dan surat peringatan SP.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Password Baru Kesiswaan
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showDirectKesiswaanPass ? 'text' : 'password'}
+                        value={directKesiswaanPass}
+                        onChange={(e) => setDirectKesiswaanPass(e.target.value)}
+                        placeholder="Minimal 4 karakter..."
+                        className="w-full px-3 py-2 pr-9 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDirectKesiswaanPass(!showDirectKesiswaanPass)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        {showDirectKesiswaanPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingDirectKesiswaan || !directKesiswaanPass.trim()}
+                  onClick={async () => {
+                    setIsSavingDirectKesiswaan(true);
+                    const success = await handleDirectRolePasswordChange('student_affairs', directKesiswaanPass);
+                    if (success) setDirectKesiswaanPass('');
+                    setIsSavingDirectKesiswaan(false);
+                  }}
+                  className="w-full py-2 rounded bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {isSavingDirectKesiswaan ? 'Menyimpan...' : 'Simpan Sandi Kesiswaan'}
+                </button>
+              </div>
+
+              {/* CARD 2: SANDI ADMINISTRATOR */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3 shadow-xs flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                      <ShieldCheck className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      2. Sandi Admin
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                      Akses Penuh
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Sandi untuk membuka menu Administrator. Sesi login Anda saat ini langsung diperbarui otomatis.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Password Baru Admin
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showDirectAdminPass ? 'text' : 'password'}
+                        value={directAdminPass}
+                        onChange={(e) => setDirectAdminPass(e.target.value)}
+                        placeholder="Minimal 4 karakter..."
+                        className="w-full px-3 py-2 pr-9 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDirectAdminPass(!showDirectAdminPass)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        {showDirectAdminPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingDirectAdmin || !directAdminPass.trim()}
+                  onClick={async () => {
+                    setIsSavingDirectAdmin(true);
+                    const success = await handleDirectRolePasswordChange('admin', directAdminPass);
+                    if (success) setDirectAdminPass('');
+                    setIsSavingDirectAdmin(false);
+                  }}
+                  className="w-full py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {isSavingDirectAdmin ? 'Menyimpan...' : 'Simpan Sandi Admin'}
+                </button>
+              </div>
+
+              {/* CARD 3: SANDI WALI KELAS */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-3 shadow-xs flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                      <GraduationCap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      3. Sandi Wali Kelas
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      Presensi Kelas
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Atur sandi untuk seluruh wali kelas sekaligus atau pilih per kelas spesifik.
+                  </p>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Target Kelas:
+                    </label>
+                    <select
+                      value={directHomeroomClassId}
+                      onChange={(e) => setDirectHomeroomClassId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs mb-2 font-medium"
+                    >
+                      <option value="all">🌟 Semua Kelas (Sandi Bersama Seluruh Wali Kelas)</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Kelas {c.name} ({c.homeroom_teacher_name || 'Wali Kelas'})
+                        </option>
+                      ))}
+                    </select>
+
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Password Baru Wali Kelas
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showDirectHomeroomPass ? 'text' : 'password'}
+                        value={directHomeroomPass}
+                        onChange={(e) => setDirectHomeroomPass(e.target.value)}
+                        placeholder="Minimal 4 karakter..."
+                        className="w-full px-3 py-2 pr-9 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDirectHomeroomPass(!showDirectHomeroomPass)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        {showDirectHomeroomPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingDirectHomeroom || !directHomeroomPass.trim()}
+                  onClick={async () => {
+                    setIsSavingDirectHomeroom(true);
+                    const success = await handleDirectRolePasswordChange(
+                      'homeroom',
+                      directHomeroomPass,
+                      directHomeroomClassId
+                    );
+                    if (success) setDirectHomeroomPass('');
+                    setIsSavingDirectHomeroom(false);
+                  }}
+                  className="w-full py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {isSavingDirectHomeroom
+                    ? 'Menyimpan...'
+                    : directHomeroomClassId === 'all'
+                    ? 'Simpan Sandi Semua Wali Kelas'
+                    : `Simpan Sandi Kelas ${directHomeroomClassId}`}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Sub-category Filter Tabs */}
           <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-md text-xs">
             <button
@@ -1622,35 +1936,711 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* SECTION 7: TAMPILAN & LOGO (Bagian 10 Poin 7) */}
+      {/* SECTION 7: TAMPILAN & LOGO (Pengaturan Nama & Logo Sekolah) */}
       {activeSection === 'appearance' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4 text-xs">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-            Pengaturan Tampilan & Identitas Sekolah
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-500 mb-1">Nama Sekolah</label>
-              <input
-                type="text"
-                value={settings.school_name}
-                onChange={(e) => updateSettings({ school_name: e.target.value })}
-                className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-500 mb-1">URL Logo Sekolah</label>
-              <input
-                type="text"
-                value={settings.logo_url}
-                onChange={(e) => updateSettings({ logo_url: e.target.value })}
-                placeholder="https://..."
-                className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-              />
+        <div className="space-y-6 text-xs">
+          {/* Header Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  Identitas & Logo Sekolah
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+                  Ubah, hapus, dan tambahkan nama sekolah serta logo resmi. Perubahan otomatis disinkronkan ke Sidebar, Layar Kiosk, Kartu Pelajar, dan Kop Surat.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  Tersinkron Real-time
+                </span>
+              </div>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* CARD 1: NAMA SEKOLAH (Ubah, Tambah, Hapus) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">Nama Sekolah</h3>
+                    <p className="text-[11px] text-slate-500">Identitas utama institusi pendidikan</p>
+                  </div>
+                </div>
+                {settings.school_name ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
+                    Aktif
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                    Belum Diatur
+                  </span>
+                )}
+              </div>
+
+              {/* Input & Form */}
+              <div className="space-y-2">
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold">
+                  Tulis atau Ubah Nama Sekolah
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={schoolNameInput}
+                    onChange={(e) => setSchoolNameInput(e.target.value)}
+                    placeholder="Contoh: SMK BISA HEBAT NUSANTARA / SMAN 1..."
+                    maxLength={80}
+                    className="w-full px-3 py-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-medium"
+                  />
+                  <span className="absolute right-3 top-3 text-[10px] text-slate-400">
+                    {schoolNameInput.length}/80
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Nama ini akan dicetak pada kartu kehadiran siswa, laporan PDF/Excel, dan kop surat peringatan resmi.
+                </p>
+              </div>
+
+              {/* Action Buttons for Name */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isSavingName || schoolNameInput === settings.school_name}
+                  onClick={async () => {
+                    setIsSavingName(true);
+                    try {
+                      await updateSettings({ school_name: schoolNameInput.trim() });
+                    } finally {
+                      setIsSavingName(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {isSavingName ? 'Menyimpan...' : 'Simpan Nama'}
+                </button>
+
+                {schoolNameInput !== settings.school_name && (
+                  <button
+                    type="button"
+                    onClick={() => setSchoolNameInput(settings.school_name || '')}
+                    className="px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset
+                  </button>
+                )}
+
+                {settings.school_name && (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearNameConfirm(true)}
+                    className="px-3 py-2 rounded-md border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex items-center gap-1 ml-auto"
+                    title="Kosongkan nama sekolah"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Hapus Nama
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Preset Names */}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Pilih Cepat Nama Contoh / Rekomendasi:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SCHOOL_NAME_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSchoolNameInput(preset)}
+                      className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: LOGO SEKOLAH (Lihat, Unggah, Ganti, Hapus) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                    <ImageIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">Logo Sekolah</h3>
+                    <p className="text-[11px] text-slate-500">Lambang visual resmi sekolah</p>
+                  </div>
+                </div>
+                {settings.logo_url ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
+                    Logo Terpasang
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                    Monogram DKB
+                  </span>
+                )}
+              </div>
+
+              {/* Current Logo Active Box */}
+              <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-4">
+                <div className="relative group">
+                  {settings.logo_url ? (
+                    <div className="w-24 h-24 rounded-lg border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                      <img
+                        src={settings.logo_url}
+                        alt="Logo Sekolah"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                      <div className="w-10 h-10 rounded-md bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold flex items-center justify-center text-xs mb-1">
+                        DKB
+                      </div>
+                      <span className="text-[10px] font-medium text-center px-1">Tanpa Logo</span>
+                    </div>
+                  )}
+                  {settings.logo_url && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewZoomModal(true)}
+                      className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1 font-semibold text-[11px]"
+                      title="Perbesar Pratinjau Logo"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      Zoom
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 text-center sm:text-left space-y-2">
+                  <div>
+                    <h4 className="font-bold text-slate-900 dark:text-white">
+                      {settings.logo_url ? 'Logo Aktif Terpasang' : 'Belum Ada Logo Terpasang'}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {settings.logo_url
+                        ? 'Logo ini sedang digunakan di seluruh aplikasi (Sidebar, Kiosk, Kartu Pelajar).'
+                        : 'Aplikasi saat ini menampilkan lencana monogram inisial "DKB" sebagai pengganti.'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                    {settings.logo_url ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const fileInput = document.getElementById('logo-file-picker');
+                            fileInput?.click();
+                          }}
+                          className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center gap-1.5 transition-colors shadow-xs"
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          Ganti Logo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowClearLogoConfirm(true)}
+                          className="px-3 py-1.5 rounded-md border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex items-center gap-1 font-medium"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Hapus Logo
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fileInput = document.getElementById('logo-file-picker');
+                          fileInput?.click();
+                        }}
+                        className="px-3.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center gap-1.5 transition-colors shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Tambah / Unggah Logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden file input triggered by buttons */}
+              <input
+                id="logo-file-picker"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!file.type.startsWith('image/')) {
+                    showToast('Format file tidak didukung. Pilih gambar PNG, JPG, WebP, atau SVG.', 'error');
+                    return;
+                  }
+                  setIsUploadingLogo(true);
+                  try {
+                    const compressedDataUrl = await compressImageFile(file, 512);
+                    setLogoUrlInput(compressedDataUrl);
+                    await updateSettings({ logo_url: compressedDataUrl });
+                    showToast('Logo sekolah berhasil diperbarui!', 'success');
+                  } catch (err: any) {
+                    showToast(err.message || 'Gagal memproses gambar.', 'error');
+                  } finally {
+                    setIsUploadingLogo(false);
+                    e.target.value = '';
+                  }
+                }}
+                className="hidden"
+              />
+
+              {/* Tabs for Adding / Changing Logo */}
+              <div className="space-y-3 pt-2">
+                <div className="flex border-b border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setLogoTab('upload')}
+                    className={`px-3 py-1.5 font-semibold text-[11px] border-b-2 transition-colors ${
+                      logoTab === 'upload'
+                        ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    1. Unggah Berkas Gambar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoTab('preset')}
+                    className={`px-3 py-1.5 font-semibold text-[11px] border-b-2 transition-colors ${
+                      logoTab === 'preset'
+                        ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    2. Pilih Template Nasional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoTab('url')}
+                    className={`px-3 py-1.5 font-semibold text-[11px] border-b-2 transition-colors ${
+                      logoTab === 'url'
+                        ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    3. Tautan URL Gambar
+                  </button>
+                </div>
+
+                {/* Tab 1: Direct File Upload */}
+                {logoTab === 'upload' && (
+                  <div
+                    onClick={() => {
+                      const fileInput = document.getElementById('logo-file-picker');
+                      fileInput?.click();
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (!file) return;
+                      if (!file.type.startsWith('image/')) {
+                        showToast('Harap jatuhkan berkas gambar (PNG, JPG, SVG, WebP).', 'error');
+                        return;
+                      }
+                      setIsUploadingLogo(true);
+                      try {
+                        const compressedDataUrl = await compressImageFile(file, 512);
+                        setLogoUrlInput(compressedDataUrl);
+                        await updateSettings({ logo_url: compressedDataUrl });
+                        showToast('Logo berhasil diunggah dan disimpan!', 'success');
+                      } catch (err: any) {
+                        showToast(err.message || 'Gagal memproses gambar.', 'error');
+                      } finally {
+                        setIsUploadingLogo(false);
+                      }
+                    }}
+                    className="p-6 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 text-center space-y-2 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                      <UploadCloud className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 dark:text-slate-200">
+                        {isUploadingLogo ? 'Sedang Mengompresi & Menyimpan Logo...' : 'Klik atau Tarik Berkas Logo ke Sini'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Mendukung PNG, JPG, SVG, dan WebP (Maksimal 5MB). Otomatis dioptimasi untuk performa cepat dan offline.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Educational Vector Presets */}
+                {logoTab === 'preset' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {SCHOOL_LOGO_PRESETS.map((preset) => (
+                      <div
+                        key={preset.id}
+                        className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all flex items-center gap-3 group"
+                      >
+                        <div className="w-12 h-12 rounded-md bg-slate-100 dark:bg-slate-700/60 p-1 flex items-center justify-center shrink-0">
+                          <img
+                            src={preset.dataUrl}
+                            alt={preset.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-indigo-600 dark:text-indigo-400 block">
+                            {preset.category}
+                          </span>
+                          <h5 className="font-bold text-slate-900 dark:text-white truncate text-xs">
+                            {preset.name}
+                          </h5>
+                          <button
+                            type="button"
+                            disabled={isSavingLogo}
+                            onClick={async () => {
+                              setIsSavingLogo(true);
+                              try {
+                                setLogoUrlInput(preset.dataUrl);
+                                await updateSettings({ logo_url: preset.dataUrl });
+                                showToast(`Logo template "${preset.name}" berhasil dipasang!`, 'success');
+                              } finally {
+                                setIsSavingLogo(false);
+                              }
+                            }}
+                            className="mt-1.5 px-2.5 py-1 rounded bg-slate-100 hover:bg-indigo-600 hover:text-white dark:bg-slate-700 dark:hover:bg-indigo-600 text-slate-700 dark:text-slate-200 font-semibold text-[10px] transition-colors inline-flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" />
+                            Gunakan Logo Ini
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tab 3: Image URL input */}
+                {logoTab === 'url' && (
+                  <div className="space-y-2 pt-1">
+                    <label className="block text-slate-600 dark:text-slate-400 font-medium">
+                      Masukkan URL Gambar Logo
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={logoUrlInput}
+                        onChange={(e) => setLogoUrlInput(e.target.value)}
+                        placeholder="https://contoh.sch.id/logo.png"
+                        className="flex-1 px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingLogo || !logoUrlInput.trim()}
+                        onClick={async () => {
+                          if (!logoUrlInput.trim()) return;
+                          setIsSavingLogo(true);
+                          try {
+                            await updateSettings({ logo_url: logoUrlInput.trim() });
+                          } finally {
+                            setIsSavingLogo(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-50 transition-colors shadow-xs shrink-0"
+                      >
+                        {isSavingLogo ? 'Menyimpan...' : 'Terapkan URL'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* CARD 3: PRATINJAU LANGSUNG MULTI-KONTEKS */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  Pratinjau Langsung Identitas di Berbagai Menu Aplikasi
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Berikut tampilan identitas sekolah Anda saat dilihat oleh Guru Piket, Siswa, dan Wali Kelas.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Preview 1: Sidebar Mockup */}
+              <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    1. Tampilan Sidebar
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                    Navigasi
+                  </span>
+                </div>
+                <div className="p-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-2.5 shadow-xs">
+                  {settings.logo_url ? (
+                    <img
+                      src={settings.logo_url}
+                      alt="Logo"
+                      className="w-9 h-9 rounded object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center shrink-0">
+                      DKB
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      DISIPLIN KITA BISA
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {settings.school_name || 'Nama Sekolah Belum Diatur'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview 2: Kiosk Header Mockup */}
+              <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    2. Layar Kiosk Presensi
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold">
+                    Layar Utama
+                  </span>
+                </div>
+                <div className="p-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center gap-3 shadow-xs">
+                  {settings.logo_url ? (
+                    <img
+                      src={settings.logo_url}
+                      alt="Logo"
+                      className="w-10 h-10 rounded object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs flex items-center justify-center shrink-0">
+                      DKB
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-base font-extrabold text-slate-900 dark:text-white">
+                        06:45:12
+                      </span>
+                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                        WIB
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate font-semibold">
+                      {settings.school_name || 'SEKOLAH INDONESIA'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview 3: Kartu Presensi Siswa Mockup */}
+              <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    3. Kartu Pelajar Siswa
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold">
+                    Cetak / RFID
+                  </span>
+                </div>
+                <div className="p-3 rounded-md bg-white text-slate-900 border border-slate-200 shadow-xs text-center space-y-1">
+                  <div className="flex items-center justify-center gap-1.5">
+                    {settings.logo_url && (
+                      <img
+                        src={settings.logo_url}
+                        alt="Logo"
+                        className="w-5 h-5 object-contain shrink-0"
+                      />
+                    )}
+                    <span className="font-extrabold text-xs uppercase truncate max-w-[150px]">
+                      {settings.school_name || 'SEKOLAH INDONESIA'}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-slate-500 tracking-wider uppercase font-semibold">
+                    KARTU PRESENSI SISWA
+                  </p>
+                  <div className="font-mono text-[10px] tracking-widest text-slate-400 pt-0.5">
+                    ||| | |||| | |||
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CONFIRMATION MODAL: HAPUS NAMA SEKOLAH */}
+          {showClearNameConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-2xl space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      Kosongkan Nama Sekolah?
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Nama sekolah akan dihapus dari identitas aplikasi. Anda dapat mengisinya kembali kapan saja.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowClearNameConfirm(false)}
+                    className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsSavingName(true);
+                      try {
+                        setSchoolNameInput('');
+                        await updateSettings({ school_name: '' });
+                        showToast('Nama sekolah berhasil dikosongkan.', 'success');
+                        setShowClearNameConfirm(false);
+                      } finally {
+                        setIsSavingName(false);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium"
+                  >
+                    Ya, Hapus Nama
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CONFIRMATION MODAL: HAPUS LOGO */}
+          {showClearLogoConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-2xl space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      Hapus Logo Sekolah?
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Logo akan dihapus dan aplikasi akan kembali menampilkan lencana inisial default &quot;DKB&quot;.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowClearLogoConfirm(false)}
+                    className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsSavingLogo(true);
+                      try {
+                        setLogoUrlInput('');
+                        await updateSettings({ logo_url: '' });
+                        showToast('Logo sekolah berhasil dihapus. Kembali menggunakan monogram DKB.', 'success');
+                        setShowClearLogoConfirm(false);
+                      } finally {
+                        setIsSavingLogo(false);
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium"
+                  >
+                    Ya, Hapus Logo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ZOOM MODAL: PREVIEW BESAR LOGO */}
+          {previewZoomModal && settings.logo_url && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+              onClick={() => setPreviewZoomModal(false)}
+            >
+              <div
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xl max-w-md w-full text-center space-y-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    Pratinjau Logo Sekolah
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoomModal(false)}
+                    className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="w-64 h-64 mx-auto rounded-lg bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 p-3 flex items-center justify-center shadow-inner">
+                  <img
+                    src={settings.logo_url}
+                    alt="Logo Sekolah Besar"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+
+                <div className="text-center">
+                  <p className="font-bold text-slate-900 dark:text-white text-sm">
+                    {settings.school_name || 'Identitas Sekolah'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tersimpan dalam database aplikasi dan dapat digunakan saat offline
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoomModal(false)}
+                    className="w-full py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 font-medium"
+                  >
+                    Tutup Pratinjau
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2459,7 +3449,12 @@ export const AdminView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm bg-white text-slate-900 border border-slate-300 rounded-lg p-5 shadow-2xl">
             <div className="text-center border-b border-slate-200 pb-3 mb-3">
-              <h3 className="font-extrabold text-sm uppercase">{settings.school_name}</h3>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                {settings.logo_url && (
+                  <img src={settings.logo_url} alt="Logo" className="w-7 h-7 object-contain shrink-0" />
+                )}
+                <h3 className="font-extrabold text-sm uppercase">{settings.school_name || 'SEKOLAH INDONESIA'}</h3>
+              </div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">KARTU PRESENSI SISWA</p>
             </div>
 

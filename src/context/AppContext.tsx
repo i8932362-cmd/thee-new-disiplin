@@ -1983,6 +1983,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSettings = async (updates: Partial<AppSettings>) => {
+    // Optimistic state and local storage update for instant reactivity
+    setSettings((prev) => {
+      const next = { ...prev, ...updates };
+      try {
+        localStorage.setItem('dkb_cache_settings', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',

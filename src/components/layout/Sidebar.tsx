@@ -113,22 +113,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenUnlockM
       >
         {/* Header / Brand */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-9 h-9 rounded-md bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-sm tracking-wider">
-              DKB
-            </div>
+          <div className="flex items-center gap-3 min-w-0">
+            {settings.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt="Logo Sekolah"
+                className="w-9 h-9 rounded-md object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-9 h-9 rounded-md bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-sm tracking-wider shrink-0 shadow-xs">
+                DKB
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-sm font-semibold text-slate-900 dark:text-white truncate leading-tight">
                 DISIPLIN KITA BISA
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {settings.school_name}
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate" title={settings.school_name || 'Belum diatur'}>
+                {settings.school_name || 'Nama Sekolah Belum Diatur'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 lg:hidden"
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 lg:hidden shrink-0"
           >
             <X className="w-5 h-5" />
           </button>

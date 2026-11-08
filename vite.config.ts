@@ -92,9 +92,9 @@ export default defineConfig(() => {
       port: 3000,
       host: '0.0.0.0',
       allowedHosts: true as const,
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // HMR is disabled in AI Studio environment
+      hmr: false,
+      watch: null,
     },
   };
 });

@@ -108,6 +108,9 @@ export class AuthService {
     const users = await storage.getUsers();
     const homeroomUsers = users.filter((u) => u.role === 'homeroom' && u.is_active);
 
+    const adminUser = await storage.findUserByRole('admin');
+    const classes = await storage.getClasses();
+
     // Match by name
     let matchedUser = homeroomUsers.find(
       (u) =>
@@ -121,15 +124,67 @@ export class AuthService {
       matchedUser = homeroomUsers.find((u) => u.class_id === classId);
     }
 
+    let targetClassId = classId;
+    let targetTeacherName = name;
+
+    // If not found in users, check if name matches any registered class or homeroom teacher
     if (!matchedUser) {
-      return { success: false, error: `Akun wali kelas dengan nama "${name}" tidak ditemukan.` };
+      const matchedClass = classes.find(
+        (c) =>
+          c.homeroom_teacher_name.toLowerCase().trim() === cleanName ||
+          c.homeroom_teacher_name.toLowerCase().includes(cleanName) ||
+          cleanName.includes(c.homeroom_teacher_name.toLowerCase().trim()) ||
+          c.name.toLowerCase().trim() === cleanName ||
+          c.id.toLowerCase().trim() === cleanName ||
+          (classId && c.id === classId)
+      );
+
+      if (matchedClass) {
+        targetClassId = matchedClass.id;
+        targetTeacherName = matchedClass.homeroom_teacher_name || `Wali Kelas ${matchedClass.name}`;
+
+        const masterHr = users.find((u) => u.id === 'user_homeroom_master');
+        const anyHr = masterHr || homeroomUsers[0];
+
+        const isPwValid =
+          (anyHr && bcrypt.compareSync(password, anyHr.password_hash)) ||
+          (adminUser && bcrypt.compareSync(password, adminUser.password_hash));
+
+        if (!isPwValid) {
+          return { success: false, error: 'Password wali kelas salah.' };
+        }
+
+        const newHrUser = {
+          id: `user_homeroom_${matchedClass.id.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+          role: 'homeroom' as const,
+          name: targetTeacherName,
+          class_id: matchedClass.id,
+          email: matchedClass.homeroom_teacher_email,
+          label: `Wali Kelas ${matchedClass.name}`,
+          password_hash: anyHr ? anyHr.password_hash : bcrypt.hashSync(password, 10),
+          token_version: 1,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await storage.saveUser(newHrUser);
+        matchedUser = newHrUser;
+      }
     }
 
-    if (!bcrypt.compareSync(password, matchedUser.password_hash)) {
+    if (!matchedUser) {
+      return { success: false, error: `Akun atau kelas untuk "${name}" tidak ditemukan.` };
+    }
+
+    const isPasswordCorrect =
+      bcrypt.compareSync(password, matchedUser.password_hash) ||
+      (adminUser && bcrypt.compareSync(password, adminUser.password_hash));
+
+    if (!isPasswordCorrect) {
       return { success: false, error: 'Password wali kelas salah.' };
     }
 
-    const targetClassId = matchedUser.class_id || classId || '10-RPL-1';
+    targetClassId = matchedUser.class_id || targetClassId || '10-RPL-1';
 
     const payload: SessionPayload = {
       ...(session || {}),

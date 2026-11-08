@@ -28,6 +28,7 @@ export const AttendanceView: React.FC = () => {
     attendance,
     activeSession,
     currentServerTime,
+    settings,
     recordAttendance,
     updateAttendance,
     deleteAttendance,
@@ -234,19 +235,28 @@ export const AttendanceView: React.FC = () => {
       {/* Top Section: Kiosk Header with Clock, Session, & Counters (Bagian 4 Poin 59) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-          {/* Big Digital Clock & Session */}
-          <div className="text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-2">
-              <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                {formatServerTime(currentServerTime)}
-              </span>
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
-                WIB
-              </span>
+          {/* Big Digital Clock & School Info */}
+          <div className="flex items-center gap-3.5">
+            {settings.logo_url && (
+              <img
+                src={settings.logo_url}
+                alt="Logo Sekolah"
+                className="w-12 h-12 rounded-lg object-contain bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+              />
+            )}
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  {formatServerTime(currentServerTime)}
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+                  WIB
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {formatIndonesianDate(currentServerTime)} {settings.school_name && <span>• <strong className="text-slate-700 dark:text-slate-300">{settings.school_name}</strong></span>}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {formatIndonesianDate(currentServerTime)}
-            </p>
           </div>
 
           {/* Active Session Info */}

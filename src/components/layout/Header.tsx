@@ -51,6 +51,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <Menu className="w-5 h-5" />
         </button>
 
+        {/* Mobile School Logo & Title */}
+        <div className="flex items-center gap-2 lg:hidden">
+          {settings.logo_url ? (
+            <img
+              src={settings.logo_url}
+              alt="Logo"
+              className="w-6 h-6 rounded object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[10px] flex items-center justify-center">
+              DKB
+            </div>
+          )}
+          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[130px]" title={settings.school_name}>
+            {settings.school_name || 'DKB'}
+          </span>
+        </div>
+
         {/* Active Session Badge */}
         {activeSession ? (
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">

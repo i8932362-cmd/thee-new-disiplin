@@ -1,9 +1,9 @@
 {
   "meta": {
-    "current_version": "1",
+    "current_version": "18",
     "app_name": "DISIPLIN KITA BISA",
     "initialized_at": "2026-11-07T04:32:01.864Z",
-    "last_updated_at": "2026-11-07T04:32:01.864Z"
+    "last_updated_at": "2026-11-08T15:46:09.495Z"
   },
   "users": [
     {
@@ -32,12 +32,12 @@
       "id": "user_student_affairs",
       "role": "student_affairs",
       "name": "Bagian Kesiswaan & Tatib",
-      "password_hash": "$2b$10$uUxyJrCKsPsS90o8E9vpfegeZAXyGRl6YCfpaWh8UkAqay1xi0r6C",
+      "password_hash": "$2b$10$XC42Dmv/hRHxDHK/Tydw3eB/u.s0yDacCoZbAdl0fIcycvjahAAea",
       "label": "Tim Kesiswaan",
-      "token_version": 1,
+      "token_version": 3,
       "is_active": true,
       "created_at": "2026-11-07T04:32:01.864Z",
-      "updated_at": "2026-11-07T04:32:01.864Z"
+      "updated_at": "2026-11-08T15:46:09.299Z"
     },
     {
       "id": "user_homeroom_1",
@@ -45,12 +45,12 @@
       "name": "Dra. Siti Aminah, M.Pd",
       "class_id": "10-RPL-1",
       "email": "siti.aminah@sekolah.sch.id",
-      "password_hash": "$2b$10$uUxyJrCKsPsS90o8E9vpfe4hQG58GLtkEuPSqhT6RgwHGYjYdx04W",
+      "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
       "label": "Wali Kelas X RPL 1",
-      "token_version": 1,
+      "token_version": 3,
       "is_active": true,
       "created_at": "2026-11-07T04:32:01.864Z",
-      "updated_at": "2026-11-07T04:32:01.864Z"
+      "updated_at": "2026-11-08T15:46:09.490Z"
     },
     {
       "id": "user_homeroom_2",
@@ -58,12 +58,12 @@
       "name": "Budi Santoso, S.Kom",
       "class_id": "10-TKJ-1",
       "email": "budi.santoso@sekolah.sch.id",
-      "password_hash": "$2b$10$uUxyJrCKsPsS90o8E9vpfe4hQG58GLtkEuPSqhT6RgwHGYjYdx04W",
+      "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
       "label": "Wali Kelas X TKJ 1",
-      "token_version": 1,
+      "token_version": 3,
       "is_active": true,
       "created_at": "2026-11-07T04:32:01.864Z",
-      "updated_at": "2026-11-07T04:32:01.864Z"
+      "updated_at": "2026-11-08T15:46:09.491Z"
     },
     {
       "id": "user_homeroom_3",
@@ -71,12 +71,36 @@
       "name": "Sri Rahayu, S.Pd",
       "class_id": "11-RPL-1",
       "email": "sri.rahayu@sekolah.sch.id",
-      "password_hash": "$2b$10$uUxyJrCKsPsS90o8E9vpfe4hQG58GLtkEuPSqhT6RgwHGYjYdx04W",
+      "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
       "label": "Wali Kelas XI RPL 1",
-      "token_version": 1,
+      "token_version": 3,
       "is_active": true,
       "created_at": "2026-11-07T04:32:01.864Z",
-      "updated_at": "2026-11-07T04:32:01.864Z"
+      "updated_at": "2026-11-08T15:46:09.491Z"
+    },
+    {
+      "id": "user_homeroom_master",
+      "role": "homeroom",
+      "name": "Wali Kelas Umum",
+      "label": "Sandi Bersama Seluruh Wali Kelas",
+      "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+      "token_version": 3,
+      "is_active": true,
+      "created_at": "2026-11-08T15:45:49.036Z",
+      "updated_at": "2026-11-08T15:46:09.494Z"
+    },
+    {
+      "id": "user_homeroom_12_rpl_1",
+      "role": "homeroom",
+      "name": "Ahmad Fauzi, M.T",
+      "class_id": "12-RPL-1",
+      "email": "ahmad.fauzi@sekolah.sch.id",
+      "label": "Wali Kelas XII RPL 1",
+      "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+      "token_version": 2,
+      "is_active": true,
+      "created_at": "2026-11-08T15:46:03.588Z",
+      "updated_at": "2026-11-08T15:46:09.494Z"
     }
   ],
   "classes": [
@@ -523,7 +547,48 @@
     "updated_at": "2026-11-07T04:32:01.864Z"
   },
   "notification_log": [],
-  "audit_log": [],
+  "audit_log": [
+    {
+      "id": "audit_1794152769495_g7yi",
+      "timestamp": "2026-11-08T15:46:09.495Z",
+      "actor_name": "Administrator Sekolah",
+      "actor_role": "admin",
+      "action": "update_password",
+      "entity": "users",
+      "entity_id": "user_homeroom_master",
+      "reason": "Admin mengubah password langsung untuk peran: homeroom"
+    },
+    {
+      "id": "audit_1794152769300_aobl",
+      "timestamp": "2026-11-08T15:46:09.300Z",
+      "actor_name": "Administrator Sekolah",
+      "actor_role": "admin",
+      "action": "update_password",
+      "entity": "users",
+      "entity_id": "user_student_affairs",
+      "reason": "Admin mengubah password langsung untuk peran: student_affairs"
+    },
+    {
+      "id": "audit_1794152749037_c7bk",
+      "timestamp": "2026-11-08T15:45:49.037Z",
+      "actor_name": "Administrator Sekolah",
+      "actor_role": "admin",
+      "action": "update_password",
+      "entity": "users",
+      "entity_id": "user_homeroom_master",
+      "reason": "Admin mengubah password langsung untuk peran: homeroom"
+    },
+    {
+      "id": "audit_1794152740819_ntmg",
+      "timestamp": "2026-11-08T15:45:40.819Z",
+      "actor_name": "Administrator Sekolah",
+      "actor_role": "admin",
+      "action": "update_password",
+      "entity": "users",
+      "entity_id": "user_student_affairs",
+      "reason": "Admin mengubah password langsung untuk peran: student_affairs"
+    }
+  ],
   "changes": [
     {
       "id": "init_1",
@@ -532,6 +597,269 @@
       "entity_id": "app_name",
       "action": "insert",
       "changed_at": "2026-11-07T04:32:01.864Z"
+    },
+    {
+      "id": "chg_1794152740818_r95f0",
+      "version": 2,
+      "entity": "users",
+      "entity_id": "user_student_affairs",
+      "action": "update",
+      "changed_at": "2026-11-08T15:45:40.818Z",
+      "data": {
+        "id": "user_student_affairs",
+        "role": "student_affairs",
+        "name": "Bagian Kesiswaan & Tatib",
+        "password_hash": "$2b$10$SAeqZxV6XD8Y6K.lNNq7yOOA6O6KsjWVjCahlHrETBa2f6Yyu7Ee6",
+        "label": "Tim Kesiswaan",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:45:40.818Z"
+      }
+    },
+    {
+      "id": "chg_1794152749034_bf0kt",
+      "version": 4,
+      "entity": "users",
+      "entity_id": "user_homeroom_1",
+      "action": "update",
+      "changed_at": "2026-11-08T15:45:49.034Z",
+      "data": {
+        "id": "user_homeroom_1",
+        "role": "homeroom",
+        "name": "Dra. Siti Aminah, M.Pd",
+        "class_id": "10-RPL-1",
+        "email": "siti.aminah@sekolah.sch.id",
+        "password_hash": "$2b$10$GdXiLV6htTFYN8alC.Y/uuVZ9eit9i5coGB7IdW/AIrViAtoym1PK",
+        "label": "Wali Kelas X RPL 1",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:45:49.034Z"
+      }
+    },
+    {
+      "id": "chg_1794152749035_y93ox",
+      "version": 5,
+      "entity": "users",
+      "entity_id": "user_homeroom_2",
+      "action": "update",
+      "changed_at": "2026-11-08T15:45:49.035Z",
+      "data": {
+        "id": "user_homeroom_2",
+        "role": "homeroom",
+        "name": "Budi Santoso, S.Kom",
+        "class_id": "10-TKJ-1",
+        "email": "budi.santoso@sekolah.sch.id",
+        "password_hash": "$2b$10$GdXiLV6htTFYN8alC.Y/uuVZ9eit9i5coGB7IdW/AIrViAtoym1PK",
+        "label": "Wali Kelas X TKJ 1",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:45:49.035Z"
+      }
+    },
+    {
+      "id": "chg_1794152749036_vu6ee",
+      "version": 6,
+      "entity": "users",
+      "entity_id": "user_homeroom_3",
+      "action": "update",
+      "changed_at": "2026-11-08T15:45:49.036Z",
+      "data": {
+        "id": "user_homeroom_3",
+        "role": "homeroom",
+        "name": "Sri Rahayu, S.Pd",
+        "class_id": "11-RPL-1",
+        "email": "sri.rahayu@sekolah.sch.id",
+        "password_hash": "$2b$10$GdXiLV6htTFYN8alC.Y/uuVZ9eit9i5coGB7IdW/AIrViAtoym1PK",
+        "label": "Wali Kelas XI RPL 1",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:45:49.036Z"
+      }
+    },
+    {
+      "id": "chg_1794152749036_fzbf4",
+      "version": 7,
+      "entity": "users",
+      "entity_id": "user_homeroom_master",
+      "action": "insert",
+      "changed_at": "2026-11-08T15:45:49.036Z",
+      "data": {
+        "id": "user_homeroom_master",
+        "role": "homeroom",
+        "name": "Wali Kelas Umum",
+        "label": "Sandi Bersama Seluruh Wali Kelas",
+        "password_hash": "$2b$10$GdXiLV6htTFYN8alC.Y/uuVZ9eit9i5coGB7IdW/AIrViAtoym1PK",
+        "token_version": 1,
+        "is_active": true,
+        "created_at": "2026-11-08T15:45:49.036Z",
+        "updated_at": "2026-11-08T15:45:49.036Z"
+      }
+    },
+    {
+      "id": "chg_1794152763588_tdmao",
+      "version": 9,
+      "entity": "users",
+      "entity_id": "user_homeroom_12_rpl_1",
+      "action": "insert",
+      "changed_at": "2026-11-08T15:46:03.588Z",
+      "data": {
+        "id": "user_homeroom_12_rpl_1",
+        "role": "homeroom",
+        "name": "Ahmad Fauzi, M.T",
+        "class_id": "12-RPL-1",
+        "email": "ahmad.fauzi@sekolah.sch.id",
+        "label": "Wali Kelas XII RPL 1",
+        "password_hash": "$2b$10$GdXiLV6htTFYN8alC.Y/uuVZ9eit9i5coGB7IdW/AIrViAtoym1PK",
+        "token_version": 1,
+        "is_active": true,
+        "created_at": "2026-11-08T15:46:03.588Z",
+        "updated_at": "2026-11-08T15:46:03.588Z"
+      }
+    },
+    {
+      "id": "chg_1794152769299_6lagn",
+      "version": 10,
+      "entity": "users",
+      "entity_id": "user_student_affairs",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.299Z",
+      "data": {
+        "id": "user_student_affairs",
+        "role": "student_affairs",
+        "name": "Bagian Kesiswaan & Tatib",
+        "password_hash": "$2b$10$XC42Dmv/hRHxDHK/Tydw3eB/u.s0yDacCoZbAdl0fIcycvjahAAea",
+        "label": "Tim Kesiswaan",
+        "token_version": 3,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:46:09.299Z"
+      }
+    },
+    {
+      "id": "chg_1794152769490_krpmg",
+      "version": 12,
+      "entity": "users",
+      "entity_id": "user_homeroom_1",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.490Z",
+      "data": {
+        "id": "user_homeroom_1",
+        "role": "homeroom",
+        "name": "Dra. Siti Aminah, M.Pd",
+        "class_id": "10-RPL-1",
+        "email": "siti.aminah@sekolah.sch.id",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "label": "Wali Kelas X RPL 1",
+        "token_version": 3,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:46:09.490Z"
+      }
+    },
+    {
+      "id": "chg_1794152769491_ssdpk",
+      "version": 13,
+      "entity": "users",
+      "entity_id": "user_homeroom_2",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.491Z",
+      "data": {
+        "id": "user_homeroom_2",
+        "role": "homeroom",
+        "name": "Budi Santoso, S.Kom",
+        "class_id": "10-TKJ-1",
+        "email": "budi.santoso@sekolah.sch.id",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "label": "Wali Kelas X TKJ 1",
+        "token_version": 3,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:46:09.491Z"
+      }
+    },
+    {
+      "id": "chg_1794152769491_8xz51",
+      "version": 14,
+      "entity": "users",
+      "entity_id": "user_homeroom_3",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.491Z",
+      "data": {
+        "id": "user_homeroom_3",
+        "role": "homeroom",
+        "name": "Sri Rahayu, S.Pd",
+        "class_id": "11-RPL-1",
+        "email": "sri.rahayu@sekolah.sch.id",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "label": "Wali Kelas XI RPL 1",
+        "token_version": 3,
+        "is_active": true,
+        "created_at": "2026-11-07T04:32:01.864Z",
+        "updated_at": "2026-11-08T15:46:09.491Z"
+      }
+    },
+    {
+      "id": "chg_1794152769493_rv09h",
+      "version": 15,
+      "entity": "users",
+      "entity_id": "user_homeroom_master",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.493Z",
+      "data": {
+        "id": "user_homeroom_master",
+        "role": "homeroom",
+        "name": "Wali Kelas Umum",
+        "label": "Sandi Bersama Seluruh Wali Kelas",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-08T15:45:49.036Z",
+        "updated_at": "2026-11-08T15:46:09.493Z"
+      }
+    },
+    {
+      "id": "chg_1794152769494_a3s50",
+      "version": 16,
+      "entity": "users",
+      "entity_id": "user_homeroom_12_rpl_1",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.494Z",
+      "data": {
+        "id": "user_homeroom_12_rpl_1",
+        "role": "homeroom",
+        "name": "Ahmad Fauzi, M.T",
+        "class_id": "12-RPL-1",
+        "email": "ahmad.fauzi@sekolah.sch.id",
+        "label": "Wali Kelas XII RPL 1",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "token_version": 2,
+        "is_active": true,
+        "created_at": "2026-11-08T15:46:03.588Z",
+        "updated_at": "2026-11-08T15:46:09.494Z"
+      }
+    },
+    {
+      "id": "chg_1794152769494_vk9kb",
+      "version": 17,
+      "entity": "users",
+      "entity_id": "user_homeroom_master",
+      "action": "update",
+      "changed_at": "2026-11-08T15:46:09.494Z",
+      "data": {
+        "id": "user_homeroom_master",
+        "role": "homeroom",
+        "name": "Wali Kelas Umum",
+        "label": "Sandi Bersama Seluruh Wali Kelas",
+        "password_hash": "$2b$10$Ww9ylDE25U/7ug.kgs2cTuKNWIMzMFLrAFPHbwg9INzVmVtXHKw0e",
+        "token_version": 3,
+        "is_active": true,
+        "created_at": "2026-11-08T15:45:49.036Z",
+        "updated_at": "2026-11-08T15:46:09.494Z"
+      }
     }
   ]
 }

@@ -12,6 +12,19 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script>
+      // Suppress benign WebSocket errors from Vite HMR in cloud sandbox environments
+      window.addEventListener('unhandledrejection', function (e) {
+        if (e && e.reason && typeof e.reason.message === 'string' && (e.reason.message.includes('WebSocket') || e.reason.message.includes('ws:'))) {
+          e.preventDefault();
+        }
+      });
+      window.addEventListener('error', function (e) {
+        if (e && typeof e.message === 'string' && (e.message.includes('WebSocket') || e.message.includes('ws:'))) {
+          e.preventDefault();
+        }
+      });
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>

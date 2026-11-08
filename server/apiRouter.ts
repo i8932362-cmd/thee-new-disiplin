@@ -175,9 +175,164 @@ export async function handleApiRoute(req: ApiRequest): Promise<ApiResponse> {
         }
 
         if (method === 'POST') {
-          const { user, newPassword, targetUserId } = req.body;
+          const { user, newPassword, targetUserId, targetRole, classId, universalHomeroom } = req.body;
 
-          // Direct password change for any specific user (Duty, Homeroom, Student Affairs, or Admin)
+          // 1. Direct role-based password change (Admin, Kesiswaan, Wali Kelas, Piket) without needing manual user creation
+          if (targetRole && newPassword) {
+            if (newPassword.trim().length < 4) {
+              return JsonResponse.badRequest('Password baru minimal 4 karakter.');
+            }
+
+            const users = await storage.getUsers();
+            let target: any = undefined;
+            let refreshedToken: string | undefined = undefined;
+            const nowIso = new Date().toISOString();
+
+            if (targetRole === 'admin') {
+              target = users.find((u) => u.role === 'admin');
+              if (!target) {
+                target = {
+                  id: 'user_admin_main',
+                  role: 'admin',
+                  name: 'Administrator Sekolah',
+                  label: 'Admin Sistem',
+                  password_hash: '',
+                  token_version: 1,
+                  is_active: true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                };
+              }
+              target.password_hash = bcrypt.hashSync(newPassword.trim(), 10);
+              target.token_version = (target.token_version || 1) + 1;
+              target.updated_at = nowIso;
+              await storage.saveUser(target);
+
+              // Refresh current admin token so caller stays authenticated
+              const JWT_SECRET = process.env.JWT_SECRET || 'disiplin-kita-bisa-secure-secret-key-2026';
+              refreshedToken = jwt.sign(
+                sanitizePayloadForSigning({
+                  ...validRes.session,
+                  tokenVersion: target.token_version,
+                }),
+                JWT_SECRET,
+                { expiresIn: '12h' }
+              );
+            } else if (targetRole === 'student_affairs') {
+              target = users.find((u) => u.role === 'student_affairs');
+              if (!target) {
+                target = {
+                  id: 'user_student_affairs',
+                  role: 'student_affairs',
+                  name: 'Bagian Kesiswaan & Tatib',
+                  label: 'Tim Kesiswaan',
+                  password_hash: '',
+                  token_version: 1,
+                  is_active: true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                };
+              }
+              target.password_hash = bcrypt.hashSync(newPassword.trim(), 10);
+              target.token_version = (target.token_version || 1) + 1;
+              target.updated_at = nowIso;
+              await storage.saveUser(target);
+            } else if (targetRole === 'duty') {
+              target = users.find((u) => u.role === 'duty');
+              if (!target) {
+                target = {
+                  id: 'user_duty_main',
+                  role: 'duty',
+                  name: 'Petugas Piket Utama',
+                  label: 'Gerbang Utama & Pos Piket',
+                  password_hash: '',
+                  token_version: 1,
+                  is_active: true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                };
+              }
+              target.password_hash = bcrypt.hashSync(newPassword.trim(), 10);
+              target.token_version = (target.token_version || 1) + 1;
+              target.updated_at = nowIso;
+              await storage.saveUser(target);
+            } else if (targetRole === 'homeroom') {
+              const classes = await storage.getClasses();
+              const hash = bcrypt.hashSync(newPassword.trim(), 10);
+
+              if (classId) {
+                // Update or auto-create homeroom user for specific classId
+                const targetClass = classes.find((c) => c.id === classId);
+                target = users.find((u) => u.role === 'homeroom' && u.class_id === classId);
+                if (!target) {
+                  target = {
+                    id: `user_homeroom_${classId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+                    role: 'homeroom',
+                    name: targetClass?.homeroom_teacher_name || `Wali Kelas ${classId}`,
+                    class_id: classId,
+                    email: targetClass?.homeroom_teacher_email,
+                    label: `Wali Kelas ${targetClass?.name || classId}`,
+                    password_hash: hash,
+                    token_version: 1,
+                    is_active: true,
+                    created_at: nowIso,
+                    updated_at: nowIso,
+                  };
+                } else {
+                  target.password_hash = hash;
+                  target.token_version = (target.token_version || 1) + 1;
+                  target.updated_at = nowIso;
+                }
+                await storage.saveUser(target);
+              } else {
+                // Universal / all homeroom teachers password
+                const homeroomUsers = users.filter((u) => u.role === 'homeroom');
+                for (const hr of homeroomUsers) {
+                  hr.password_hash = hash;
+                  hr.token_version = (hr.token_version || 1) + 1;
+                  hr.updated_at = nowIso;
+                  await storage.saveUser(hr);
+                }
+
+                // Ensure master homeroom account exists for universal login
+                let masterHr = users.find((u) => u.id === 'user_homeroom_master');
+                if (!masterHr) {
+                  masterHr = {
+                    id: 'user_homeroom_master',
+                    role: 'homeroom',
+                    name: 'Wali Kelas Umum',
+                    label: 'Sandi Bersama Seluruh Wali Kelas',
+                    password_hash: hash,
+                    token_version: 1,
+                    is_active: true,
+                    created_at: nowIso,
+                    updated_at: nowIso,
+                  };
+                } else {
+                  masterHr.password_hash = hash;
+                  masterHr.token_version = (masterHr.token_version || 1) + 1;
+                  masterHr.updated_at = nowIso;
+                }
+                await storage.saveUser(masterHr);
+                target = masterHr;
+              }
+            }
+
+            await storage.logAudit(
+              validRes.session.name,
+              'admin',
+              'update_password',
+              'users',
+              target?.id || targetRole,
+              undefined,
+              undefined,
+              `Admin mengubah password langsung untuk peran: ${targetRole}${classId ? ` (${classId})` : ''}`
+            );
+
+            return JsonResponse.ok({ success: true, user: target, refreshedToken });
+          }
+
+          // 2. Direct password change for any specific user by ID
           if (targetUserId && newPassword) {
             if (newPassword.trim().length < 4) {
               return JsonResponse.badRequest('Password baru minimal 4 karakter.');
@@ -186,7 +341,6 @@ export async function handleApiRoute(req: ApiRequest): Promise<ApiResponse> {
             const target = users.find((u) => u.id === targetUserId);
             if (!target) return JsonResponse.notFound('Akun tidak ditemukan.');
 
-            const oldRecord = { ...target };
             target.password_hash = bcrypt.hashSync(newPassword.trim(), 10);
             target.token_version = (target.token_version || 1) + 1;
             target.updated_at = new Date().toISOString();
